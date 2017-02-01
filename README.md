@@ -17,4 +17,4 @@ It's prepared and tested on Python 3.5
 
     gif = GiPyF()
     gif.parse("<path to gif>")
-    gif.save_frames()
+    gif.save_frames("<path to save>")

@@ -2,6 +2,10 @@ import copy
 
 
 class Table:
+    """
+    Table for LZW codes
+    """
+
     def __init__(self, size):
         self.table = [[i] for i in range(size)]
         self.clear_value = size
@@ -9,12 +13,18 @@ class Table:
         self.end_value = size + 1
         self.table.append([size + 1])
 
+        # Structure to quick check element existance
         self.exists_table = {
             "values": [],
             "entity": {}
         }
 
     def add(self, value):
+        """
+            Add value to table if it's not exists
+        :param value:
+        :return:
+        """
         exists = True
         check = copy.copy(self.exists_table)
         for key in value[:-1]:

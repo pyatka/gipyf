@@ -1,4 +1,5 @@
 import binascii
+import os
 
 from gipyf.binop import byte_to_bits
 from gipyf.graphics import Palete, Color
@@ -7,13 +8,23 @@ from gipyf.compression import Table
 
 class GiPyF:
     def __init__(self):
+        # Gif standart version GIF89a or GIF87a
         self.version = None
+
+        # Headers image width and height in pixels
         self.width = 0
         self.height = 0
+
+        # Bool value is there global color table
         self.is_global_color_table = True
+
         self.color_resolution = 0
+
+        # If True it means that colors in table sorted by quantity
         self.is_color_sorted = False
+
         self.table_colors_count = 0
+
         self.global_palete = None
         self.background = b'00'
         self.width_to_height = b'00'
@@ -22,14 +33,27 @@ class GiPyF:
 
         self.frames_count = 0
 
-    def save_frames(self):
+    def save_frames(self, dir):
+        """
+        Save gif frames as .png to dir
+        :param dir: string path to directory
+        :return:
+        """
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+
         i = 0
         for block in self.blocks:
             if type(block) == Image:
-                block.save_to_file("t/%s.png" % i)
+                block.save_to_file(os.path.join(dir, "/%s.png") % i)
                 i += 1
 
     def parse(self, source):
+        """
+        Prepare GiPyF object from gif's binary data
+        :param source: string path to file
+        :return:
+        """
         stream = source
         if type(source) == str:
             stream = open(source, 'rb')
@@ -55,24 +79,25 @@ class GiPyF:
             pos += 3
 
         part_marker = stream.read(1)
-        while ord(part_marker) != 0x3b:
-            if ord(part_marker) == 0x21:
-                extention_type = ord(stream.read(1))
-                if extention_type == 0xf9:
+        while ord(part_marker) != 0x3b:  # End of blocks
+            if ord(part_marker) == 0x21:  # Extension block
+                extension_type = ord(stream.read(1))
+                if extension_type == 0xf9:  # Graphics control extension
                     data = stream.read(int.from_bytes(stream.read(1), byteorder='little'))
                     color_alpha_index = int.from_bytes(data[-1:], byteorder='little')
                     play_delay = (
-                    int.from_bytes(data[-3:-2], byteorder='little'), int.from_bytes(data[-2:-1], byteorder='little'))
+                        int.from_bytes(data[-3:-2], byteorder='little'),
+                        int.from_bytes(data[-2:-1], byteorder='little'))
                     binascii.hexlify(stream.read(1))
 
                     self.blocks.append(GraphicControlExtension(color_alpha_index, play_delay))
                 else:
-                    # print("skip block %s" % (extention_type))
+                    # Skip unsupported blocks
                     block_length = int.from_bytes(stream.read(1), byteorder='little')
                     while block_length != 0:
                         stream.read(block_length)
                         block_length = int.from_bytes(stream.read(1), byteorder='little')
-            elif ord(part_marker) == 0x2c:
+            elif ord(part_marker) == 0x2c:  # Image block
                 top_left_x = int.from_bytes(stream.read(2), byteorder='little')
                 top_left_y = int.from_bytes(stream.read(2), byteorder='little')
 
@@ -83,9 +108,11 @@ class GiPyF:
 
                 lzw_length = int.from_bytes(stream.read(1), byteorder='little') + 1
 
-                image = Image(width, height, lzw_length, self.global_palete, top_left_x=top_left_x, top_left_y=top_left_y,
+                image = Image(width, height, lzw_length, self.global_palete, top_left_x=top_left_x,
+                              top_left_y=top_left_y,
                               local_color_table=local_color_table)
 
+                # Collect all image binary in one
                 parts = b''
                 length = int.from_bytes(stream.read(1), byteorder='little')
                 while length != 0:
@@ -99,6 +126,7 @@ class GiPyF:
 
             part_marker = stream.read(1)
 
+        # Uncompress LZW binary to colors
         for block in self.blocks:
             if type(block) == Image:
                 block.unpack_binary_data()
@@ -114,9 +142,14 @@ class Image:
     def __init__(self, width, height, lzw_length, global_palete, top_left_x=0, top_left_y=0, local_color_table=b'00'):
         self.global_palete = global_palete
         self.local_color_table = local_color_table
+
+        # local image top lext coordinates
         self.top_left_y = top_left_y
         self.top_left_x = top_left_x
+
         self.lzw_length = lzw_length
+
+        # local image size
         self.height = height
         self.width = width
 
@@ -136,6 +169,10 @@ class Image:
         im.save(name)
 
     def unpack_binary_data(self):
+        """
+            Unpack LZW binary
+        :return:
+        """
         result = []
         full_result = []
         prev_block = None
@@ -164,7 +201,6 @@ class Image:
                     self._lzw_table = Table(self.global_palete.get_size())
                     self._current_lzw_length = self.lzw_length
                     prev_block = None
-
 
             if self._lzw_table.is_end(block) or self._lzw_table.is_clear(block):
                 for r in result:

@@ -19,7 +19,6 @@ class Palete:
 
 class Color:
     def __init__(self, r, g, b):
-        #print(r,g,b)
         super().__init__()
         self.r = r
         self.g = g
