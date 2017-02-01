@@ -1,0 +1,6 @@
+../GiPyF/.idea
+gipyf/__pycache__/*
+.DS_Store
+t/*
+*.pyc
+build/*
